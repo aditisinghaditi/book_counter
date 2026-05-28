@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Counter</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin: 20px 0; font-size: 1.8rem; }
+        .container { width: 100%; max-width: 500px; }
+        .capture-btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.2rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .capture-btn:active { background: #388E3C; }
+        input[type="file"] { display: none; }
+        .result {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .count {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        .result img {
+            width: 100%;
+            border-radius: 12px;
+            margin-top: 10px;
+        }
+        .loading {
+            display: none;
+            margin: 20px 0;
+            font-size: 1.2rem;
+            color: #aaa;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #aaa;
+            border-top-color: #4CAF50;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <h1>📚 Book Counter</h1>
+    <div class="container">
+        <button class="capture-btn" onclick="document.getElementById('fileInput').click()">
+            📷 Take Photo / Choose Image
+        </button>
+        <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="uploadImage(this)">
+
+        <div class="loading" id="loading">
+            <span class="spinner"></span> Counting books...
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        async function uploadImage(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            loading.style.display = 'block';
+            result.innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/count', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                result.innerHTML = `
+                    <div class="count">${data.count} book${data.count !== 1 ? 's' : ''} detected</div>
+                    <img src="data:image/jpeg;base64,${data.annotated_image}" alt="Detected books">
+                `;
+            } catch (err) {
+                result.innerHTML = `<p style="color: #f44336;">Error: ${err.message}</p>`;
+            } finally {
+                loading.style.display = 'none';
+                input.value = '';
+            }
+        }
+    </script>
+</body>
+</html>
