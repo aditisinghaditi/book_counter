@@ -10,131 +10,295 @@
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background: #1a1a2e;
             color: #eee;
-            min-height: 100vh;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Upper half */
+        .upper {
+            height: 50vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            justify-content: center;
+            padding: 10px;
+            position: relative;
+            border-bottom: 2px solid #2a2a4a;
         }
-        h1 { margin: 20px 0; font-size: 1.8rem; }
-        .container { width: 100%; max-width: 500px; }
-        .capture-btn {
-            width: 100%;
-            padding: 16px;
-            font-size: 1.2rem;
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn {
+            padding: 12px 20px;
+            font-size: 1rem;
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             cursor: pointer;
-            margin: 10px 0;
         }
-        .capture-btn:active { background: #388E3C; }
+        .btn:active { background: #388E3C; }
+        .btn.secondary { background: #2196F3; }
+        .btn.secondary:active { background: #1565C0; }
+        .btn.danger { background: #f44336; }
+        .btn.danger:active { background: #c62828; }
         input[type="file"] { display: none; }
-        .result { margin-top: 20px; text-align: center; }
-        .count {
-            font-size: 3rem;
+
+        .view-area {
+            flex: 1;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #111;
+        }
+        .view-area video, .view-area img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 12px;
+        }
+        .view-area video { width: 100%; height: 100%; object-fit: cover; }
+        .count-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 1.3rem;
             font-weight: bold;
             color: #4CAF50;
-            margin: 10px 0;
         }
-        .titles {
-            text-align: left;
-            margin: 15px 0;
-            padding: 15px;
-            background: #16213e;
-            border-radius: 10px;
-            max-height: 300px;
-            overflow-y: auto;
+        .placeholder {
+            color: #555;
+            font-size: 1.1rem;
+            text-align: center;
         }
-        .titles li {
-            padding: 4px 0;
-            border-bottom: 1px solid #2a2a4a;
-            list-style: decimal;
-            margin-left: 20px;
-        }
-        .result img {
-            width: 100%;
-            border-radius: 12px;
-            margin-top: 10px;
-        }
-        .loading {
+        .loading-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #aaa;
             display: none;
-            margin: 20px 0;
+        }
+        .loading-indicator.active { display: block; }
+
+        /* Lower half */
+        .lower {
+            height: 50vh;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .lower h2 {
             font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        .summary {
+            margin-bottom: 10px;
+            font-size: 0.95rem;
             color: #aaa;
         }
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #aaa;
-            border-top-color: #4CAF50;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .error { color: #f44336; margin: 10px 0; }
+        th {
+            background: #16213e;
+            padding: 10px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        tr:hover td { background: #16213e; }
+        .empty-state {
+            color: #555;
+            text-align: center;
+            padding: 30px;
+            font-size: 1rem;
+        }
+        .clear-btn {
+            align-self: flex-end;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
-    <h1>📚 Book Counter</h1>
-    <div class="container">
-        <button class="capture-btn" onclick="document.getElementById('fileInput').click()">
-            📷 Take Photo / Choose Image
-        </button>
-        <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="uploadImage(this)">
-
-        <div class="loading" id="loading">
-            <span class="spinner"></span> Analyzing image with AI...
+    <!-- Upper Half: Camera / Upload -->
+    <div class="upper">
+        <div class="controls">
+            <button class="btn" onclick="startCamera()">📷 Open Camera</button>
+            <button class="btn secondary" onclick="document.getElementById('fileInput').click()">📁 Upload Image</button>
+            <button class="btn danger" id="stopBtn" style="display:none" onclick="stopCamera()">⏹ Stop Camera</button>
+            <button class="btn secondary" id="captureBtn" style="display:none" onclick="captureFrame()">📸 Capture & Count</button>
         </div>
+        <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="uploadImage(this)">
+        <div class="view-area" id="viewArea">
+            <p class="placeholder">Open camera or upload an image to start counting</p>
+        </div>
+        <div class="count-overlay" id="countOverlay" style="display:none">📚 <span id="liveCount">0</span> books</div>
+        <div class="loading-indicator" id="loadingIndicator">Analyzing...</div>
+    </div>
 
-        <div class="result" id="result"></div>
+    <!-- Lower Half: Book Table -->
+    <div class="lower">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>📋 Book Inventory</h2>
+            <button class="btn danger" style="padding:6px 12px; font-size:0.85rem;" onclick="clearTable()">Clear</button>
+        </div>
+        <div class="summary" id="summary">Total: 0 unique titles, 0 books</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Book Name</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody id="bookTableBody">
+                <tr><td colspan="2" class="empty-state">No books scanned yet</td></tr>
+            </tbody>
+        </table>
     </div>
 
     <script>
-        async function uploadImage(input) {
+        let stream = null;
+        let bookInventory = {};  // {title: count}
+
+        function startCamera() {
+            const viewArea = document.getElementById('viewArea');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(s => {
+                    stream = s;
+                    viewArea.innerHTML = '<video id="video" autoplay playsinline></video>';
+                    document.getElementById('video').srcObject = stream;
+                    document.getElementById('stopBtn').style.display = 'inline-block';
+                    document.getElementById('captureBtn').style.display = 'inline-block';
+                    document.getElementById('countOverlay').style.display = 'block';
+                })
+                .catch(err => {
+                    alert('Camera access denied: ' + err.message);
+                });
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+            document.getElementById('viewArea').innerHTML = '<p class="placeholder">Open camera or upload an image to start counting</p>';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('captureBtn').style.display = 'none';
+            document.getElementById('countOverlay').style.display = 'none';
+        }
+
+        function captureFrame() {
+            const video = document.getElementById('video');
+            if (!video) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'capture.jpg');
+                sendToServer(formData);
+            }, 'image/jpeg', 0.85);
+        }
+
+        function uploadImage(input) {
             const file = input.files[0];
             if (!file) return;
 
-            const loading = document.getElementById('loading');
-            const result = document.getElementById('result');
-            loading.style.display = 'block';
-            result.innerHTML = '';
+            // Show preview
+            const viewArea = document.getElementById('viewArea');
+            const url = URL.createObjectURL(file);
+            viewArea.innerHTML = `<img src="${url}" alt="Uploaded image">`;
+            document.getElementById('countOverlay').style.display = 'block';
 
             const formData = new FormData();
             formData.append('image', file);
+            sendToServer(formData);
+            input.value = '';
+        }
+
+        async function sendToServer(formData) {
+            const loading = document.getElementById('loadingIndicator');
+            loading.classList.add('active');
 
             try {
                 const response = await fetch('/count', { method: 'POST', body: formData });
                 const data = await response.json();
 
                 if (data.error) {
-                    result.innerHTML = `<p class="error">${data.error}</p>`;
+                    alert('Error: ' + data.error);
                     return;
                 }
 
-                let titlesHtml = '';
+                // Update live count
+                document.getElementById('liveCount').textContent = data.count;
+
+                // Add titles to inventory (collate)
                 if (data.titles && data.titles.length > 0) {
-                    titlesHtml = `
-                        <div class="titles">
-                            <ol>${data.titles.map(t => `<li>${t}</li>`).join('')}</ol>
-                        </div>`;
+                    data.titles.forEach(title => {
+                        const normalized = title.trim();
+                        if (normalized && normalized !== 'Unreadable') {
+                            bookInventory[normalized] = (bookInventory[normalized] || 0) + 1;
+                        }
+                    });
                 }
 
-                result.innerHTML = `
-                    <div class="count">${data.count} book${data.count !== 1 ? 's' : ''} detected</div>
-                    ${titlesHtml}
-                    <img src="data:image/jpeg;base64,${data.image}" alt="Uploaded image">
-                `;
+                renderTable();
             } catch (err) {
-                result.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+                alert('Error: ' + err.message);
             } finally {
-                loading.style.display = 'none';
-                input.value = '';
+                loading.classList.remove('active');
             }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('bookTableBody');
+            const entries = Object.entries(bookInventory).sort((a, b) => a[0].localeCompare(b[0]));
+
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="empty-state">No books scanned yet</td></tr>';
+                document.getElementById('summary').textContent = 'Total: 0 unique titles, 0 books';
+                return;
+            }
+
+            const totalBooks = entries.reduce((sum, [, qty]) => sum + qty, 0);
+            document.getElementById('summary').textContent = `Total: ${entries.length} unique titles, ${totalBooks} books`;
+
+            tbody.innerHTML = entries.map(([title, qty]) =>
+                `<tr><td>${title}</td><td>${qty}</td></tr>`
+            ).join('');
+        }
+
+        function clearTable() {
+            bookInventory = {};
+            renderTable();
         }
     </script>
 </body>
