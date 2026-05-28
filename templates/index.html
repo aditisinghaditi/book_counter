@@ -31,15 +31,27 @@
         }
         .capture-btn:active { background: #388E3C; }
         input[type="file"] { display: none; }
-        .result {
-            margin-top: 20px;
-            text-align: center;
-        }
+        .result { margin-top: 20px; text-align: center; }
         .count {
             font-size: 3rem;
             font-weight: bold;
             color: #4CAF50;
             margin: 10px 0;
+        }
+        .titles {
+            text-align: left;
+            margin: 15px 0;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .titles li {
+            padding: 4px 0;
+            border-bottom: 1px solid #2a2a4a;
+            list-style: decimal;
+            margin-left: 20px;
         }
         .result img {
             width: 100%;
@@ -64,6 +76,7 @@
             vertical-align: middle;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .error { color: #f44336; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -75,7 +88,7 @@
         <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="uploadImage(this)">
 
         <div class="loading" id="loading">
-            <span class="spinner"></span> Counting books...
+            <span class="spinner"></span> Analyzing image with AI...
         </div>
 
         <div class="result" id="result"></div>
@@ -98,12 +111,26 @@
                 const response = await fetch('/count', { method: 'POST', body: formData });
                 const data = await response.json();
 
+                if (data.error) {
+                    result.innerHTML = `<p class="error">${data.error}</p>`;
+                    return;
+                }
+
+                let titlesHtml = '';
+                if (data.titles && data.titles.length > 0) {
+                    titlesHtml = `
+                        <div class="titles">
+                            <ol>${data.titles.map(t => `<li>${t}</li>`).join('')}</ol>
+                        </div>`;
+                }
+
                 result.innerHTML = `
                     <div class="count">${data.count} book${data.count !== 1 ? 's' : ''} detected</div>
-                    <img src="data:image/jpeg;base64,${data.annotated_image}" alt="Detected books">
+                    ${titlesHtml}
+                    <img src="data:image/jpeg;base64,${data.image}" alt="Uploaded image">
                 `;
             } catch (err) {
-                result.innerHTML = `<p style="color: #f44336;">Error: ${err.message}</p>`;
+                result.innerHTML = `<p class="error">Error: ${err.message}</p>`;
             } finally {
                 loading.style.display = 'none';
                 input.value = '';

@@ -1,46 +1,63 @@
-"""Book counting module using YOLOv8 object detection."""
+"""Book counting module using Google Gemini Vision API."""
 
-from pathlib import Path
-from ultralytics import YOLO
+import io
+import os
+import json
+
+import google.generativeai as genai
+from PIL import Image
 
 
-# COCO class index for "book" is 73
-BOOK_CLASS_ID = 73
-
-
-def count_books(image_path: str, confidence: float = 0.3, save_annotated: bool = True) -> dict:
+def count_books(image_path: str = None, image_bytes: bytes = None) -> dict:
     """
-    Detect and count books in an image.
+    Count books in an image using Gemini Vision.
 
     Args:
         image_path: Path to the input image.
-        confidence: Minimum confidence threshold for detections.
-        save_annotated: Whether to save an annotated image with bounding boxes.
+        image_bytes: Raw image bytes (alternative to path).
 
     Returns:
-        Dictionary with 'count' and 'output_path' (if saved).
+        Dictionary with 'count' and 'titles' (list of detected book titles).
     """
-    image_path = Path(image_path)
-    if not image_path.exists():
-        raise FileNotFoundError(f"Image not found: {image_path}")
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable not set")
 
-    model = YOLO("yolov8n.pt")  # Downloads automatically on first run
+    genai.configure(api_key=api_key)
 
-    results = model(str(image_path), conf=confidence, verbose=False)
+    if image_bytes:
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    elif image_path:
+        img = Image.open(image_path).convert("RGB")
+    else:
+        raise ValueError("Provide either image_path or image_bytes")
 
-    # Filter detections for "book" class only
-    book_count = 0
-    for result in results:
-        for box in result.boxes:
-            if int(box.cls) == BOOK_CLASS_ID:
-                book_count += 1
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
-    output_path = None
-    if save_annotated and book_count > 0:
-        output_path = image_path.parent / f"{image_path.stem}_counted{image_path.suffix}"
-        # Filter results to only show book detections
-        annotated = results[0].plot()
-        from PIL import Image
-        Image.fromarray(annotated).save(str(output_path))
+    prompt = """Look at this image of a book stack. Count the total number of individual books visible.
 
-    return {"count": book_count, "output_path": str(output_path) if output_path else None}
+Instructions:
+- Count each physical book separately, even if they look similar.
+- Look at the spines/edges to identify individual books.
+- If you can read titles or labels on the spines, list them.
+
+Respond ONLY in this exact JSON format (no markdown, no code blocks):
+{"count": <number>, "titles": ["title1", "title2", ...]}
+
+If you cannot read some titles, use "Unreadable" as the title for those books.
+"""
+
+    response = model.generate_content([prompt, img])
+    text = response.text.strip()
+
+    # Remove markdown code blocks if present
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1]
+        text = text.rsplit("```", 1)[0].strip()
+
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError:
+        result = {"count": 0, "titles": [], "raw_response": text}
+
+    return result
